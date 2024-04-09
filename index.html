@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Screen Capture Example</title>
+  <style>
+    #screenshot {
+      border: 1px solid #000;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Screen Capture Example</h1>
+  <button id="startSharingButton">Start Sharing</button>
+  <br>
+  <canvas id="screenshot" width="1280" height="720"></canvas>
+  <br>
+  <button id="captureButton" disabled>Capture Screen</button>
+  
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const startSharingButton = document.getElementById('startSharingButton');
+      const captureButton = document.getElementById('captureButton');
+      const screenVideo = document.getElementById('screenVideo');
+      const screenshotCanvas = document.getElementById('screenshot');
+      const ctx = screenshotCanvas.getContext('2d');
+  
+      let screenStream;
+      let isCapturing = false;
+  
+      startSharingButton.addEventListener('click', async () => {
+        try {
+          screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: true
+          });
+          captureButton.disabled = false;
+  
+          isCapturing = true;
+          updateScreen();
+        } catch (error) {
+          console.error('Error accessing screen stream: ', error);
+        }
+      });
+  
+      captureButton.addEventListener('click', () => {
+        const track = screenStream.getVideoTracks()[0];
+        const imageCapture = new ImageCapture(track);
+  
+        imageCapture.grabFrame()
+          .then(imageBitmap => {
+            ctx.clearRect(0, 0, screenshotCanvas.width, screenshotCanvas.height);
+            ctx.drawImage(imageBitmap, 0, 0, screenshotCanvas.width, screenshotCanvas.height);
+  
+            const screenshotData = screenshotCanvas.toDataURL('image/png');
+  
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/save-screenshot', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = () => {
+              if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+                console.log('Screenshot sent successfully.');
+              }
+            };
+            xhr.send(`screenshot=${encodeURIComponent(screenshotData)}`);
+          })
+          .catch(error => {
+            console.error('Error capturing frame: ', error);
+          });
+      });
+  
+      function updateScreen() {
+        if (!isCapturing) {
+          return;
+        }
+  
+        const track = screenStream.getVideoTracks()[0];
+        const imageCapture = new ImageCapture(track);
+  
+        imageCapture.grabFrame()
+          .then(imageBitmap => {
+            ctx.clearRect(0, 0, screenshotCanvas.width, screenshotCanvas.height);
+            ctx.drawImage(imageBitmap, 0, 0, screenshotCanvas.width, screenshotCanvas.height);
+            requestAnimationFrame(updateScreen);
+          })
+          .catch(error => {
+            console.error('Error capturing frame: ', error);
+          });
+      }
+    });
+  </script>
+</body>
+</html>
